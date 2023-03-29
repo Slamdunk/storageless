@@ -58,6 +58,7 @@ use function random_int;
 use function time;
 use function uniqid;
 
+/** @covers \PSR7Sessions\Storageless\Http\SessionMiddleware */
 final class SessionMiddlewareTest extends TestCase
 {
     /**
