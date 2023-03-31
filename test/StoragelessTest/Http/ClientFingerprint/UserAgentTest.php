@@ -22,10 +22,13 @@ namespace PSR7SessionsTest\Storageless\Http\ClientFingerprint;
 
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\TestCase;
-use PSR7Sessions\Storageless\Http\ClientFingerprint\RuntimeException;
+use PSR7Sessions\Storageless\Http\ClientFingerprint\SourceMissing;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\UserAgent;
 
-/** @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\UserAgent */
+/**
+ * @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\UserAgent
+ * @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\SourceMissing
+ */
 final class UserAgentTest extends TestCase
 {
     private UserAgent $source;
@@ -45,7 +48,7 @@ final class UserAgentTest extends TestCase
 
     public function testRequireParamToExist(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(SourceMissing::class);
 
         $this->source->extractFrom(new ServerRequest());
     }
@@ -54,7 +57,7 @@ final class UserAgentTest extends TestCase
     {
         $request = new ServerRequest([UserAgent::REQUEST_ATTRIBUTE_NAME => []]);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(SourceMissing::class);
 
         $this->source->extractFrom($request);
     }
@@ -63,7 +66,7 @@ final class UserAgentTest extends TestCase
     {
         $request = new ServerRequest([UserAgent::REQUEST_ATTRIBUTE_NAME => '']);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(SourceMissing::class);
 
         $this->source->extractFrom($request);
     }

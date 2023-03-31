@@ -25,40 +25,36 @@ use PSR7Sessions\Storageless\Http\ClientFingerprint\Configuration;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\RemoteAddr;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\Source;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\UserAgent;
+use RuntimeException;
 
 use function array_map;
 
 /** @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\Configuration */
 final class ConfigurationTest extends TestCase
 {
+    public function testByDefaultIsDisabled(): void
+    {
+        $configuration = new Configuration();
+
+        self::assertFalse($configuration->enabled());
+
+        $this->expectException(RuntimeException::class);
+
+        $configuration->sources();
+    }
+
     public function testEnabledFactoryProvidesRemoteAddrAndUserAgentSources(): void
     {
-        $configuration = Configuration::enabled();
+        $configuration = Configuration::forIpAndUserAgent();
 
-        self::assertTrue($configuration->enabled);
+        self::assertTrue($configuration->enabled());
 
         $sources = array_map(
             static fn (Source $source) => $source::class,
-            $configuration->sources,
+            $configuration->sources(),
         );
 
         self::assertContains(RemoteAddr::class, $sources);
         self::assertContains(UserAgent::class, $sources);
-    }
-
-    public function testDisabledFactoryNeedsNoSources(): void
-    {
-        $configuration = Configuration::disabled();
-
-        self::assertFalse($configuration->enabled);
-        self::assertEmpty($configuration->sources);
-    }
-
-    public function testDefaultConfigurationIsDisabled(): void
-    {
-        self::assertEquals(
-            Configuration::disabled(),
-            Configuration::default(),
-        );
     }
 }

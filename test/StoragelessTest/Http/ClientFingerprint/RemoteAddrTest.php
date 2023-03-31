@@ -23,9 +23,12 @@ namespace PSR7SessionsTest\Storageless\Http\ClientFingerprint;
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\TestCase;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\RemoteAddr;
-use PSR7Sessions\Storageless\Http\ClientFingerprint\RuntimeException;
+use PSR7Sessions\Storageless\Http\ClientFingerprint\SourceMissing;
 
-/** @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\RemoteAddr */
+/**
+ * @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\RemoteAddr
+ * @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\SourceMissing
+ */
 final class RemoteAddrTest extends TestCase
 {
     private RemoteAddr $source;
@@ -45,7 +48,7 @@ final class RemoteAddrTest extends TestCase
 
     public function testRequireParamToExist(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(SourceMissing::class);
 
         $this->source->extractFrom(new ServerRequest());
     }
@@ -54,7 +57,7 @@ final class RemoteAddrTest extends TestCase
     {
         $request = new ServerRequest([RemoteAddr::REQUEST_ATTRIBUTE_NAME => []]);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(SourceMissing::class);
 
         $this->source->extractFrom($request);
     }
@@ -63,7 +66,7 @@ final class RemoteAddrTest extends TestCase
     {
         $request = new ServerRequest([RemoteAddr::REQUEST_ATTRIBUTE_NAME => '']);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(SourceMissing::class);
 
         $this->source->extractFrom($request);
     }

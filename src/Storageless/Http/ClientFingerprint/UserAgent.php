@@ -8,7 +8,6 @@ use Psr\Http\Message\ServerRequestInterface;
 
 use function array_key_exists;
 use function is_string;
-use function sprintf;
 
 /** @immutable */
 final class UserAgent implements Source
@@ -23,10 +22,7 @@ final class UserAgent implements Source
             || ! is_string($serverParams[self::REQUEST_ATTRIBUTE_NAME])
             || $serverParams[self::REQUEST_ATTRIBUTE_NAME] === ''
         ) {
-            throw new RuntimeException(sprintf(
-                'The request lacks a valid %s parameter',
-                self::REQUEST_ATTRIBUTE_NAME,
-            ));
+            throw SourceMissing::for(self::REQUEST_ATTRIBUTE_NAME);
         }
 
         return $serverParams[self::REQUEST_ATTRIBUTE_NAME];

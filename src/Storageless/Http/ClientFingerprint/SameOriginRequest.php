@@ -10,8 +10,6 @@ use Lcobucci\JWT\Validation\Constraint;
 use Lcobucci\JWT\Validation\ConstraintViolation;
 use Psr\Http\Message\ServerRequestInterface;
 
-use function assert;
-
 /** @immutable */
 final class SameOriginRequest implements Constraint
 {
@@ -24,7 +22,7 @@ final class SameOriginRequest implements Constraint
         private readonly Configuration $configuration,
         ServerRequestInterface $serverRequest,
     ) {
-        if (! $this->configuration->enabled) {
+        if (! $this->configuration->enabled()) {
             return;
         }
 
@@ -33,7 +31,7 @@ final class SameOriginRequest implements Constraint
 
     public function assert(Token $token): void
     {
-        if (! $this->configuration->enabled) {
+        if (! $this->configuration->enabled()) {
             return;
         }
 
@@ -53,11 +51,8 @@ final class SameOriginRequest implements Constraint
     /** @return non-empty-string */
     private static function getCurrentFingerprint(Configuration $configuration, ServerRequestInterface $serverRequest): string
     {
-        $sources = $configuration->sources;
-        assert($sources !== []);
-
         $fingerprint = '';
-        foreach ($sources as $source) {
+        foreach ($configuration->sources() as $source) {
             $fingerprint .= "\x00" . $source->extractFrom($serverRequest);
         }
 

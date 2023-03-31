@@ -26,6 +26,7 @@ use Lcobucci\JWT\Token\DataSet;
 use Lcobucci\JWT\Token\Plain;
 use Lcobucci\JWT\Token\Signature;
 use Lcobucci\JWT\Validation\ConstraintViolation;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\Configuration;
@@ -45,10 +46,13 @@ final class SameOriginRequestTest extends TestCase
         $this->source        = new class implements Source {
             public function extractFrom(ServerRequestInterface $request): string
             {
-                return $request->getMethod();
+                $method = $request->getMethod();
+                Assert::assertNotEmpty($method);
+
+                return $method;
             }
         };
-        $this->configuration = new Configuration(true, $this->source);
+        $this->configuration = new Configuration($this->source);
         $this->request       = new ServerRequest(method: 'GET');
         $this->constraint    = new SameOriginRequest($this->configuration, $this->request);
     }
@@ -59,10 +63,7 @@ final class SameOriginRequestTest extends TestCase
         $request->expects(self::never())->method('getMethod');
 
         $constraint = new SameOriginRequest(
-            new Configuration(
-                false,
-                $this->source,
-            ),
+            new Configuration(),
             $request,
         );
 

@@ -4,34 +4,37 @@ declare(strict_types=1);
 
 namespace PSR7Sessions\Storageless\Http\ClientFingerprint;
 
+use RuntimeException;
+
 /** @immutable */
 final class Configuration
 {
-    public readonly array $sources;
+    /** @var list<Source> */
+    private readonly array $sources;
 
     public function __construct(
-        public readonly bool $enabled,
         Source ...$sources,
     ) {
         $this->sources = $sources;
     }
 
-    public static function default(): self
+    public static function forIpAndUserAgent(): self
     {
-        return self::disabled();
+        return new self(new RemoteAddr(), new UserAgent());
     }
 
-    public static function enabled(): self
+    public function enabled(): bool
     {
-        return new self(
-            true,
-            new RemoteAddr(),
-            new UserAgent(),
-        );
+        return $this->sources !== [];
     }
 
-    public static function disabled(): self
+    /** @return non-empty-list<Source> */
+    public function sources(): array
     {
-        return new self(false);
+        if ($this->sources === []) {
+            throw new RuntimeException('No Source has been configured');
+        }
+
+        return $this->sources;
     }
 }
