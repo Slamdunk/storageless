@@ -12,6 +12,7 @@ final class Configuration
     /** @var list<Source> */
     private readonly array $sources;
 
+    /** @no-named-arguments */
     public function __construct(
         Source ...$sources,
     ) {
