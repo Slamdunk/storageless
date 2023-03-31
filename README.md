@@ -73,20 +73,16 @@ you can bind the user session to its IP (`$_SERVER['REMOTE_ADDR']`) and
 User-Agent (`$_SERVER['HTTP_USER_AGENT']`) by enabling client fingerprinting:
 
 ```php
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Hmac;
-use Lcobucci\JWT\Signer\Key;
-use PSR7Sessions\Storageless\Http\SessionMiddleware;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\Configuration as FingerprintConfig;
 
 $app = new \Mezzio\Application(/* ... */);
 
-$app->pipe(new SessionMiddleware(
-    Configuration::forSymmetricSigner(
-        new Hmac\Sha256(),
-        Key\InMemory::base64Encoded('mBC5v1sOKVvbdEitdSBenu59nfNfhwkedkJVNabosTw='), // replace this with a key of your own (see docs below)
+$app->pipe(new \PSR7Sessions\Storageless\Http\SessionMiddleware(
+    \Lcobucci\JWT\Configuration::forSymmetricSigner(
+        new \Lcobucci\JWT\Signer\Hmac\Sha256(),
+        \Lcobucci\JWT\Signer\Key\InMemory::base64Encoded('mBC5v1sOKVvbdEitdSBenu59nfNfhwkedkJVNabosTw='), // replace this with a key of your own (see docs below)
     ),
-    SessionMiddleware::buildDefaultCookie(),
+    \PSR7Sessions\Storageless\Http\SessionMiddleware::buildDefaultCookie(),
     100,
     \Lcobucci\Clock\SystemClock::fromSystemTimezone(),
     fingerprintConfig: FingerprintConfig::forIpAndUserAgent()
@@ -98,26 +94,22 @@ In such cases you can extract the information you need by writing a custom
 `\PSR7Sessions\Storageless\Http\ClientFingerprint\Source` implementation:
 
 ```php
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Hmac;
-use Lcobucci\JWT\Signer\Key;
 use Psr\Http\Message\ServerRequestInterface;
-use PSR7Sessions\Storageless\Http\SessionMiddleware;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\Configuration as FingerprintConfig;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\Source;
 
 $app = new \Mezzio\Application(/* ... */);
 
-$app->pipe(new SessionMiddleware(
-    Configuration::forSymmetricSigner(
-        new Hmac\Sha256(),
-        Key\InMemory::base64Encoded('mBC5v1sOKVvbdEitdSBenu59nfNfhwkedkJVNabosTw='), // replace this with a key of your own (see docs below)
+$app->pipe(new \PSR7Sessions\Storageless\Http\SessionMiddleware(
+    \Lcobucci\JWT\Configuration::forSymmetricSigner(
+        new \Lcobucci\JWT\Signer\Hmac\Sha256(),
+        \Lcobucci\JWT\Signer\Key\InMemory::base64Encoded('mBC5v1sOKVvbdEitdSBenu59nfNfhwkedkJVNabosTw='), // replace this with a key of your own (see docs below)
     ),
-    SessionMiddleware::buildDefaultCookie(),
+    \PSR7Sessions\Storageless\Http\SessionMiddleware::buildDefaultCookie(),
     100,
     \Lcobucci\Clock\SystemClock::fromSystemTimezone(),
     fingerprintConfig: new FingerprintConfig(new class implements Source{
-         public function extractFrom(ServerRequestInterface $request): string
+         public function extractFrom(\Psr\Http\Message\ServerRequestInterface $request): string
          {
              return $request->getServerParams()['HTTP_X_REAL_IP'];
          }
