@@ -51,6 +51,7 @@ use stdClass;
 use function date_default_timezone_get;
 use function sprintf;
 
+/** @immutable */
 final class SessionMiddleware implements MiddlewareInterface
 {
     public const SESSION_CLAIM        = 'session-data';
