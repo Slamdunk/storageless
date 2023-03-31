@@ -21,12 +21,16 @@ declare(strict_types=1);
 namespace PSR7SessionsTest\Storageless\Http\ClientFingerprint;
 
 use Laminas\Diactoros\ServerRequest;
+use Lcobucci\JWT\Encoding\ChainedFormatter;
+use Lcobucci\JWT\Encoding\JoseEncoder;
+use Lcobucci\JWT\Signer;
+use Lcobucci\JWT\Signer\Blake2b;
+use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token;
 use Lcobucci\JWT\Token\DataSet;
 use Lcobucci\JWT\Token\Plain;
 use Lcobucci\JWT\Token\Signature;
 use Lcobucci\JWT\Validation\ConstraintViolation;
-use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use PSR7Sessions\Storageless\Http\ClientFingerprint\Configuration;
@@ -36,36 +40,42 @@ use PSR7Sessions\Storageless\Http\ClientFingerprint\Source;
 /** @covers \PSR7Sessions\Storageless\Http\ClientFingerprint\SameOriginRequest */
 final class SameOriginRequestTest extends TestCase
 {
+    private const SOURCE_DATA = 'ID';
+
     private Source $source;
     private Configuration $configuration;
     private ServerRequest $request;
     private SameOriginRequest $constraint;
+    private Token\Builder $builder;
+    private Signer $signer;
+    private Signer\Key $key;
 
     protected function setUp(): void
     {
-        $this->source        = new class implements Source {
+        $this->source        = new class (self::SOURCE_DATA) implements Source {
+            /** @param non-empty-string $data */
+            public function __construct(
+                private readonly string $data,
+            ) {
+            }
+
             public function extractFrom(ServerRequestInterface $request): string
             {
-                $method = $request->getMethod();
-                Assert::assertNotEmpty($method);
-
-                return $method;
+                return $this->data;
             }
         };
         $this->configuration = new Configuration($this->source);
-        $this->request       = new ServerRequest(method: 'GET');
+        $this->request       = new ServerRequest();
         $this->constraint    = new SameOriginRequest($this->configuration, $this->request);
+        $this->builder       = new Token\Builder(new JoseEncoder(), ChainedFormatter::withUnixTimestampDates());
+
+        $this->signer = new Blake2b();
+        $this->key    = InMemory::base64Encoded('K9c4Wq2rO9Upc3/diteodLudLkFjczY6ny7ebrTm/TA=');
     }
 
     public function testWhenDisabledTheTokenIsAlwaysValid(): void
     {
-        $request = $this->createMock(ServerRequestInterface::class);
-        $request->expects(self::never())->method('getMethod');
-
-        $constraint = new SameOriginRequest(
-            new Configuration(),
-            $request,
-        );
+        $constraint = $this->getDisabledConstraint();
 
         $constraint->assert($this->createMock(Token::class));
     }
@@ -88,12 +98,93 @@ final class SameOriginRequestTest extends TestCase
 
     public function testShouldRaiseExceptionWhenFingerprintDoesNotMatch(): void
     {
-        $token = $this->buildToken([SameOriginRequest::CLAIM_FINGERPRINT => 'POST']);
+        $token = $this->buildToken([SameOriginRequest::CLAIM => self::SOURCE_DATA . ' changed']);
 
         $this->expectException(ConstraintViolation::class);
         $this->expectExceptionMessage('"Client Fingerprint" does not match');
 
         $this->constraint->assert($token);
+    }
+
+    public function testWhenDisabledItDoesntAddAnyAdditionalClaim(): void
+    {
+        $constraint = $this->getDisabledConstraint();
+        $newBuilder = $constraint->configure($this->builder);
+
+        self::assertSame(
+            $this->builder->getToken($this->signer, $this->key)->claims()->all(),
+            $newBuilder->getToken($this->signer, $this->key)->claims()->all(),
+        );
+    }
+
+    public function testShouldAddFingerprintClaim(): void
+    {
+        $newBuilder = $this->constraint->configure($this->builder);
+        $claims     = $newBuilder->getToken($this->signer, $this->key)->claims();
+
+        self::assertTrue($claims->has(SameOriginRequest::CLAIM));
+    }
+
+    public function testFingerprintShouldDependOnAllConfiguredSources(): void
+    {
+        $sourceOne          = new class implements Source {
+            public function extractFrom(ServerRequestInterface $request): string
+            {
+                return 'one';
+            }
+        };
+        $sourceTwo          = new class implements Source {
+            public function extractFrom(ServerRequestInterface $request): string
+            {
+                return 'two';
+            }
+        };
+        $sourceOneTwoHacked = new class implements Source {
+            public function extractFrom(ServerRequestInterface $request): string
+            {
+                return 'onetwo';
+            }
+        };
+
+        $constraintOne          = new SameOriginRequest(new Configuration($sourceOne), $this->request);
+        $constraintOneTwo       = new SameOriginRequest(new Configuration($sourceOne, $sourceTwo), $this->request);
+        $constraintTwoOne       = new SameOriginRequest(new Configuration($sourceTwo, $sourceOne), $this->request);
+        $constraintOneTwoHacked = new SameOriginRequest(new Configuration($sourceOneTwoHacked), $this->request);
+
+        $claimsOne          = $constraintOne->configure($this->builder)->getToken($this->signer, $this->key)->claims();
+        $claimsOneTwo       = $constraintOneTwo->configure($this->builder)->getToken($this->signer, $this->key)->claims();
+        $claimsTwoOne       = $constraintTwoOne->configure($this->builder)->getToken($this->signer, $this->key)->claims();
+        $claimsOneTwoHacked = $constraintOneTwoHacked->configure($this->builder)->getToken($this->signer, $this->key)->claims();
+
+        $fingerprintOne          = $claimsOne->get(SameOriginRequest::CLAIM);
+        $fingerprintOneTwo       = $claimsOneTwo->get(SameOriginRequest::CLAIM);
+        $fingerprintTwoOne       = $claimsTwoOne->get(SameOriginRequest::CLAIM);
+        $fingerprintOneTwoHacked = $claimsOneTwoHacked->get(SameOriginRequest::CLAIM);
+
+        self::assertIsString($fingerprintOne);
+        self::assertNotEmpty($fingerprintOne);
+        self::assertIsString($fingerprintOneTwo);
+        self::assertNotEmpty($fingerprintOneTwo);
+        self::assertIsString($fingerprintTwoOne);
+        self::assertNotEmpty($fingerprintTwoOne);
+        self::assertIsString($fingerprintOneTwoHacked);
+        self::assertNotEmpty($fingerprintOneTwoHacked);
+
+        self::assertNotSame($fingerprintOne, $fingerprintOneTwo);
+        self::assertNotSame($fingerprintOne, $fingerprintTwoOne);
+        self::assertNotSame($fingerprintOneTwo, $fingerprintTwoOne);
+        self::assertNotSame($fingerprintOneTwo, $fingerprintOneTwoHacked);
+    }
+
+    public function testShouldHashFingerprintSources(): void
+    {
+        $newBuilder = $this->constraint->configure($this->builder);
+        $claims     = $newBuilder->getToken($this->signer, $this->key)->claims();
+
+        $fingerprint = $claims->get(SameOriginRequest::CLAIM);
+        self::assertIsString($fingerprint);
+        self::assertNotEmpty($fingerprint);
+        self::assertStringNotContainsString(self::SOURCE_DATA, $fingerprint);
     }
 
     /** @param array<non-empty-string, mixed> $claims */
@@ -104,6 +195,17 @@ final class SameOriginRequestTest extends TestCase
             new DataSet([], ''),
             new DataSet($claims, ''),
             new Signature('sig+hash', 'sig+encoded'),
+        );
+    }
+
+    private function getDisabledConstraint(): SameOriginRequest
+    {
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->expects(self::never())->method('getMethod');
+
+        return new SameOriginRequest(
+            new Configuration(),
+            $request,
         );
     }
 }
